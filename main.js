@@ -206,6 +206,68 @@ const runeRing = new THREE.Mesh(new THREE.TorusGeometry(0.77, 0.017, 6, 48), new
 runeRing.rotation.x = Math.PI / 2; runeRing.position.y = 1.62; relic.add(runeRing);
 const relicGlow = new THREE.PointLight(0x5ccfbc, 9, 5, 2); relicGlow.position.set(0, 1.8, 0); relic.add(relicGlow);
 
+// In-world confirmation panel: unlike the HTML toast, this is rendered in 3D
+// and remains visible inside the Quest headset while an immersive session is active.
+const messageCanvas = document.createElement('canvas');
+messageCanvas.width = 1024;
+messageCanvas.height = 360;
+const messageContext = messageCanvas.getContext('2d');
+const messageTexture = new THREE.CanvasTexture(messageCanvas);
+messageTexture.colorSpace = THREE.SRGBColorSpace;
+const worldMessage = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: messageTexture,
+  transparent: true,
+  depthTest: false,
+  depthWrite: false,
+  opacity: 1,
+}));
+worldMessage.scale.set(2.55, 0.9, 1);
+worldMessage.position.set(relic.position.x, 2.25, relic.position.z);
+worldMessage.renderOrder = 10;
+worldMessage.visible = false;
+scene.add(worldMessage);
+let worldMessageHideAt = 0;
+let activeXRSession = null;
+
+function setWorldMessage(title, body, duration = 4600) {
+  const ctx = messageContext;
+  ctx.clearRect(0, 0, messageCanvas.width, messageCanvas.height);
+  const radius = 34;
+  ctx.fillStyle = 'rgba(8, 10, 16, 0.94)';
+  ctx.strokeStyle = 'rgba(217, 185, 120, 0.98)';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(radius, 12);
+  ctx.lineTo(messageCanvas.width - radius, 12);
+  ctx.quadraticCurveTo(messageCanvas.width - 12, 12, messageCanvas.width - 12, radius);
+  ctx.lineTo(messageCanvas.width - 12, messageCanvas.height - radius);
+  ctx.quadraticCurveTo(messageCanvas.width - 12, messageCanvas.height - 12, messageCanvas.width - radius, messageCanvas.height - 12);
+  ctx.lineTo(radius, messageCanvas.height - 12);
+  ctx.quadraticCurveTo(12, messageCanvas.height - 12, 12, messageCanvas.height - radius);
+  ctx.lineTo(12, radius);
+  ctx.quadraticCurveTo(12, 12, radius, 12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#e6c982';
+  ctx.font = 'bold 38px Segoe UI, Arial, sans-serif';
+  ctx.fillText(title, messageCanvas.width / 2, 100, messageCanvas.width - 90);
+  ctx.fillStyle = '#f4eee2';
+  ctx.font = '30px Segoe UI, Arial, sans-serif';
+  ctx.fillText(body, messageCanvas.width / 2, 188, messageCanvas.width - 90);
+  ctx.fillStyle = 'rgba(217, 185, 120, 0.75)';
+  ctx.fillRect(270, 250, 484, 2);
+  ctx.fillStyle = '#bdb6aa';
+  ctx.font = '22px Segoe UI, Arial, sans-serif';
+  ctx.fillText('PALÁCIO DAS MEMÓRIAS', messageCanvas.width / 2, 294, messageCanvas.width - 90);
+  messageTexture.needsUpdate = true;
+  worldMessage.position.set(relic.position.x, 2.25, relic.position.z);
+  worldMessage.visible = true;
+  worldMessageHideAt = performance.now() + duration;
+}
+
 // A gentle cloud of dust motes adds depth. Points are cheaper than thousands of individual meshes.
 const dustCount = 1500;
 const dustPositions = new Float32Array(dustCount * 3);
@@ -267,12 +329,15 @@ function interact() {
   const now = performance.now();
   if (distance < 2.8 && now - lastInteract > 1200) {
     lastInteract = now;
-    showToast('O Livro das Memórias reconhece sua presença. Novas páginas serão escritas nas próximas versões.');
+    const recognition = 'O Livro das Memórias reconhece sua presença. Novas páginas serão escritas nas próximas versões.';
+    showToast(recognition);
+    setWorldMessage('O LIVRO DAS MEMÓRIAS', 'Reconheço sua presença.');
     book.rotation.y += Math.PI * 0.35;
     runeRing.material.color.setHex(0xffd78a);
     setTimeout(() => runeRing.material.color.setHex(0x70d5c5), 1200);
   } else if (distance >= 2.8) {
     showToast('Aproxime-se do livro dourado no pedestal para examiná-lo.');
+    setWorldMessage('O LIVRO DAS MEMÓRIAS', 'Aproxime-se para despertar suas páginas.', 2600);
   }
 }
 
@@ -299,7 +364,13 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('keyup', (event) => keys.delete(event.code));
 window.addEventListener('blur', () => keys.clear());
 
+function onXRSelect() {
+  if (renderer.xr.isPresenting) interact();
+}
+
 renderer.xr.addEventListener('sessionstart', () => {
+  activeXRSession = renderer.xr.getSession();
+  activeXRSession?.addEventListener('select', onXRSelect);
   camera.position.set(0, 0, 0);
   camera.rotation.set(0, 0, 0);
   statusEl.textContent = 'Realidade virtual ativa';
@@ -307,6 +378,9 @@ renderer.xr.addEventListener('sessionstart', () => {
   showToast('Bem-vindo ao Palácio das Memórias. Caminhe com calma e mantenha a área livre.');
 });
 renderer.xr.addEventListener('sessionend', () => {
+  activeXRSession?.removeEventListener('select', onXRSelect);
+  activeXRSession = null;
+  worldMessage.visible = false;
   camera.position.set(0, 1.65, 0);
   camera.rotation.set(pitch, 0, 0);
   statusEl.textContent = pointerLocked ? 'Exploração ativa' : 'Modo computador';
@@ -346,10 +420,6 @@ function updateVRMovement(dt) {
       if (Math.abs(axisX) > 0.12) cameraRig.position.addScaledVector(moveRight, axisX * speed * dt);
       if (Math.abs(axisY) > 0.12) cameraRig.position.addScaledVector(cameraWorldDir, -axisY * speed * dt);
     }
-    if (source.handedness === 'right' && gamepad.buttons?.[0]?.pressed) {
-      const distance = Math.hypot(cameraRig.position.x - relic.position.x, cameraRig.position.z - relic.position.z);
-      if (distance < 2.8 && performance.now() - lastInteract > 1200) interact();
-    }
   }
 }
 
@@ -360,6 +430,7 @@ function animate() {
   wrapModules();
   floor.position.z = cameraRig.position.z - 68;
   floorLines.position.z = cameraRig.position.z - 3.5;
+  if (worldMessage.visible && performance.now() > worldMessageHideAt) worldMessage.visible = false;
   if (relic) {
     const t = performance.now() * 0.001;
     book.position.y = Math.sin(t * 1.35) * 0.035;
