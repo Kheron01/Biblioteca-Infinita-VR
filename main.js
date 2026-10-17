@@ -268,6 +268,134 @@ function setWorldMessage(title, body, duration = 4600) {
   worldMessageHideAt = performance.now() + duration;
 }
 
+// A readable in-world book spread: the content is rendered onto a canvas texture
+// so it remains visible in both desktop mode and the immersive Quest browser.
+const bookPages = [
+  {
+    leftTitle: 'O primeiro corredor',
+    leftText: 'A biblioteca não possui uma entrada única. Toda porta abre para uma estante, e toda estante parece guardar a sombra de outra.',
+    rightTitle: 'A regra do infinito',
+    rightText: 'Aqui, a distância não é medida apenas em passos. Cada descoberta pode revelar um novo caminho. Não tenha pressa: observe os sinais dourados.'
+  },
+  {
+    leftTitle: 'O que os livros guardam',
+    leftText: 'Alguns volumes preservam fatos. Outros guardam perguntas que ninguém teve coragem de fazer. Nem todas as páginas precisam ser lidas de uma vez.',
+    rightTitle: 'O bibliotecário',
+    rightText: 'Quem chega deve tratar cada memória com cuidado. O conhecimento não é apenas aquilo que se recorda, mas aquilo que se escolhe compreender.'
+  },
+  {
+    leftTitle: 'O próximo salão',
+    leftText: 'Ao atravessar o arco seguinte, procure a luz azul. Ela indica uma passagem para setores ainda não catalogados.',
+    rightTitle: 'Fim do registro',
+    rightText: 'Estas são as primeiras páginas do Palácio das Memórias. O livro voltará a abrir quando você estiver pronto para continuar.'
+  }
+];
+
+const bookPageCanvas = document.createElement('canvas');
+bookPageCanvas.width = 1400;
+bookPageCanvas.height = 720;
+const bookPageContext = bookPageCanvas.getContext('2d');
+const bookPageTexture = new THREE.CanvasTexture(bookPageCanvas);
+bookPageTexture.colorSpace = THREE.SRGBColorSpace;
+const bookPagePanel = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: bookPageTexture,
+  transparent: true,
+  depthTest: false,
+  depthWrite: false,
+  opacity: 1,
+}));
+bookPagePanel.scale.set(2.75, 1.42, 1);
+bookPagePanel.position.set(relic.position.x, 2.25, relic.position.z);
+bookPagePanel.renderOrder = 11;
+bookPagePanel.visible = false;
+scene.add(bookPagePanel);
+let isBookOpen = false;
+let bookPageIndex = 0;
+
+function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 8) {
+  const words = text.split(/\s+/);
+  let line = '';
+  let lines = 0;
+  for (const word of words) {
+    const testLine = line ? `${line} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      ctx.fillText(line, x, y);
+      y += lineHeight;
+      lines += 1;
+      line = word;
+      if (lines >= maxLines) return;
+    } else {
+      line = testLine;
+    }
+  }
+  if (line && lines < maxLines) ctx.fillText(line, x, y);
+}
+
+function drawBookSpread(pageIndex) {
+  const ctx = bookPageContext;
+  const w = bookPageCanvas.width;
+  const h = bookPageCanvas.height;
+  const page = bookPages[pageIndex];
+  ctx.clearRect(0, 0, w, h);
+
+  // Dark leather frame with a restrained gold border.
+  ctx.fillStyle = 'rgba(8, 10, 16, 0.98)';
+  ctx.fillRect(8, 8, w - 16, h - 16);
+  ctx.strokeStyle = '#d9b978';
+  ctx.lineWidth = 7;
+  ctx.strokeRect(12, 12, w - 24, h - 24);
+
+  // Two parchment pages.
+  const left = { x: 36, y: 36, w: 650, h: 648 };
+  const right = { x: 714, y: 36, w: 650, h: 648 };
+  for (const p of [left, right]) {
+    ctx.fillStyle = '#e9dec2';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.strokeStyle = '#ab8e5e';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(p.x + 8, p.y + 8, p.w - 16, p.h - 16);
+  }
+
+  ctx.fillStyle = '#8d6b39';
+  ctx.font = 'bold 22px Georgia, serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`PALÁCIO DAS MEMÓRIAS · REGISTRO ${String(pageIndex + 1).padStart(2, '0')}`, left.x + 34, 90);
+  ctx.textAlign = 'right';
+  ctx.fillText('ARQUIVO VIVO', right.x + right.w - 34, 90);
+
+  ctx.strokeStyle = '#b79a69';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(left.x + 34, 112); ctx.lineTo(left.x + left.w - 34, 112); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(right.x + 34, 112); ctx.lineTo(right.x + right.w - 34, 112); ctx.stroke();
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#33291d';
+  ctx.font = 'bold 34px Georgia, serif';
+  wrapCanvasText(ctx, page.leftTitle, left.x + 34, 168, left.w - 68, 40, 2);
+  ctx.font = '27px Georgia, serif';
+  wrapCanvasText(ctx, page.leftText, left.x + 34, 232, left.w - 76, 42, 8);
+
+  ctx.fillStyle = '#33291d';
+  ctx.font = 'bold 34px Georgia, serif';
+  wrapCanvasText(ctx, page.rightTitle, right.x + 34, 168, right.w - 68, 40, 2);
+  ctx.font = '27px Georgia, serif';
+  wrapCanvasText(ctx, page.rightText, right.x + 34, 232, right.w - 76, 42, 8);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#8d6b39';
+  ctx.font = 'bold 19px Segoe UI, Arial, sans-serif';
+  ctx.fillText('PRESSIONE O GATILHO (VR) OU E (PC) PARA AVANÇAR', w / 2, 654);
+  bookPageTexture.needsUpdate = true;
+}
+
+function showBookPage(index) {
+  bookPageIndex = index;
+  drawBookSpread(bookPageIndex);
+  worldMessage.visible = false;
+  bookPagePanel.position.set(relic.position.x, 2.25, relic.position.z);
+  bookPagePanel.visible = true;
+}
+
 // A gentle cloud of dust motes adds depth. Points are cheaper than thousands of individual meshes.
 const dustCount = 1500;
 const dustPositions = new Float32Array(dustCount * 3);
@@ -327,14 +455,24 @@ function wrapModules() {
 function interact() {
   const distance = Math.hypot(cameraRig.position.x - relic.position.x, cameraRig.position.z - relic.position.z);
   const now = performance.now();
-  if (distance < 2.8 && now - lastInteract > 1200) {
+  if (distance < 2.8 && now - lastInteract > 950) {
     lastInteract = now;
-    const recognition = 'O Livro das Memórias reconhece sua presença. Novas páginas serão escritas nas próximas versões.';
-    showToast(recognition);
-    setWorldMessage('O LIVRO DAS MEMÓRIAS', 'Reconheço sua presença.');
-    book.rotation.y += Math.PI * 0.35;
-    runeRing.material.color.setHex(0xffd78a);
-    setTimeout(() => runeRing.material.color.setHex(0x70d5c5), 1200);
+    if (!isBookOpen) {
+      isBookOpen = true;
+      showBookPage(0);
+      showToast('O livro se abriu. Interaja novamente para virar a página.');
+      book.rotation.y += Math.PI * 0.35;
+      runeRing.material.color.setHex(0xffd78a);
+      setTimeout(() => runeRing.material.color.setHex(0x70d5c5), 1200);
+    } else if (bookPageIndex < bookPages.length - 1) {
+      showBookPage(bookPageIndex + 1);
+      showToast(`Registro ${bookPageIndex + 1} de ${bookPages.length}.`);
+    } else {
+      isBookOpen = false;
+      bookPagePanel.visible = false;
+      showToast('Leitura concluída. O livro aguarda sua próxima visita.');
+      setWorldMessage('LEITURA CONCLUÍDA', 'O livro aguarda sua próxima visita.', 3400);
+    }
   } else if (distance >= 2.8) {
     showToast('Aproxime-se do livro dourado no pedestal para examiná-lo.');
     setWorldMessage('O LIVRO DAS MEMÓRIAS', 'Aproxime-se para despertar suas páginas.', 2600);
@@ -374,13 +512,15 @@ renderer.xr.addEventListener('sessionstart', () => {
   camera.position.set(0, 0, 0);
   camera.rotation.set(0, 0, 0);
   statusEl.textContent = 'Realidade virtual ativa';
-  helpEl.innerHTML = '<strong>Exploração em VR</strong><div class="row"><span>Use o analógico esquerdo para andar; mova a cabeça naturalmente para olhar ao redor.</span></div><div class="row"><span>Aproxime-se do livro dourado e pressione o gatilho do controle direito para examiná-lo.</span></div><div class="row"><span>Use o botão de sair do sistema para encerrar a sessão VR.</span></div>';
+  helpEl.innerHTML = '<strong>Exploração em VR</strong><div class="row"><span>Use o analógico esquerdo para andar; mova a cabeça naturalmente para olhar ao redor.</span></div><div class="row"><span>Aproxime-se do livro dourado. Pressione o gatilho para abrir e avançar as páginas.</span></div><div class="row"><span>Use o botão de sair do sistema para encerrar a sessão VR.</span></div>';
   showToast('Bem-vindo ao Palácio das Memórias. Caminhe com calma e mantenha a área livre.');
 });
 renderer.xr.addEventListener('sessionend', () => {
   activeXRSession?.removeEventListener('select', onXRSelect);
   activeXRSession = null;
   worldMessage.visible = false;
+  bookPagePanel.visible = false;
+  isBookOpen = false;
   camera.position.set(0, 1.65, 0);
   camera.rotation.set(pitch, 0, 0);
   statusEl.textContent = pointerLocked ? 'Exploração ativa' : 'Modo computador';
