@@ -304,11 +304,13 @@ const bookPagePanel = new THREE.Sprite(new THREE.SpriteMaterial({
   depthWrite: false,
   opacity: 1,
 }));
-bookPagePanel.scale.set(2.75, 1.42, 1);
-bookPagePanel.position.set(relic.position.x, 2.25, relic.position.z);
+bookPagePanel.scale.set(1.85, 0.95, 1);
+bookPagePanel.position.set(0, 0, -2.0);
 bookPagePanel.renderOrder = 11;
 bookPagePanel.visible = false;
-scene.add(bookPagePanel);
+// Parent to the camera so the reading spread appears in front of the player
+// in both desktop and immersive VR, instead of appearing somewhere in the room.
+camera.add(bookPagePanel);
 let isBookOpen = false;
 let bookPageIndex = 0;
 
@@ -392,7 +394,8 @@ function showBookPage(index) {
   bookPageIndex = index;
   drawBookSpread(bookPageIndex);
   worldMessage.visible = false;
-  bookPagePanel.position.set(relic.position.x, 2.25, relic.position.z);
+  // Keep the pages at a comfortable, fixed reading distance in front of the view.
+  bookPagePanel.position.set(0, 0, -2.0);
   bookPagePanel.visible = true;
 }
 
