@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080a10" />
+  <title>Biblioteca Infinita — Projeto VR</title>
+  <style>
+    :root { color-scheme: dark; --gold: #d9b978; --panel: rgba(9, 12, 20, .82); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #080a10; font-family: Inter, Segoe UI, Arial, sans-serif; color: #f0e9dc; }
+    canvas { display: block; width: 100%; height: 100%; outline: none; }
+    #hud { position: fixed; inset: 0; pointer-events: none; }
+    #brand { position: absolute; top: 22px; left: 24px; max-width: min(550px, calc(100vw - 48px)); text-shadow: 0 2px 18px #000; }
+    #brand .eyebrow { font-size: 10px; letter-spacing: .28em; text-transform: uppercase; color: var(--gold); margin-bottom: 7px; }
+    #brand h1 { margin: 0; font-size: clamp(20px, 2.6vw, 31px); font-weight: 500; letter-spacing: .035em; }
+    #brand p { margin: 8px 0 0; max-width: 440px; color: #c1bdba; font-size: 12px; line-height: 1.5; }
+    #help { position: absolute; left: 24px; bottom: 22px; width: min(390px, calc(100vw - 48px)); padding: 14px 16px; border: 1px solid rgba(217,185,120,.24); border-radius: 12px; background: var(--panel); backdrop-filter: blur(10px); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+    #help strong { display: block; font-size: 11px; color: var(--gold); letter-spacing: .16em; text-transform: uppercase; margin-bottom: 9px; }
+    #help .row { display: flex; gap: 10px; align-items: center; margin: 6px 0; font-size: 12px; color: #d7d4cf; }
+    kbd { min-width: 24px; display: inline-flex; align-items: center; justify-content: center; padding: 3px 6px; border: 1px solid #55515a; border-bottom-width: 2px; border-radius: 5px; color: #fff4db; background: #1b1c26; font: 11px ui-monospace, monospace; }
+    #status { position: absolute; top: 22px; right: 24px; padding: 8px 11px; border: 1px solid rgba(217,185,120,.24); border-radius: 99px; background: rgba(9,12,20,.7); color: #c6c0b7; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
+    #toast { position: absolute; left: 50%; bottom: 18%; transform: translate(-50%, 10px); padding: 11px 16px; border: 1px solid rgba(217,185,120,.4); border-radius: 10px; background: rgba(9,12,20,.92); color: #f0e9dc; font-size: 13px; opacity: 0; transition: opacity .2s, transform .2s; text-align: center; max-width: calc(100vw - 30px); }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+    #reticle { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255,244,220,.7); box-shadow: 0 0 8px rgba(255,220,150,.65); }
+    #vr-root { position: fixed; right: 24px; bottom: 24px; z-index: 10; }
+    #vr-root button { appearance: none; cursor: pointer; border: 1px solid rgba(242,211,146,.7); border-radius: 9px; padding: 12px 16px; background: linear-gradient(135deg, #c9a35e, #94703a); color: #141018; font-weight: 700; font-size: 12px; letter-spacing: .04em; box-shadow: 0 5px 24px rgba(0,0,0,.35); }
+    #vr-root button:disabled { opacity: .45; cursor: default; }
+    #footer { position: absolute; right: 24px; bottom: 78px; color: rgba(220,214,204,.54); text-align: right; font-size: 10px; line-height: 1.6; }
+    @media (max-width: 620px) { #brand { top: 14px; left: 14px; } #brand p { max-width: 270px; } #status { top: 14px; right: 14px; } #help { left: 14px; bottom: 14px; width: min(330px, calc(100vw - 28px)); padding: 11px 12px; } #vr-root { right: 14px; bottom: 14px; } #footer { display:none; } }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div id="brand">
+      <div class="eyebrow">Projeto de realidade virtual · v0.1</div>
+      <h1>Biblioteca Infinita</h1>
+      <p>Um primeiro vislumbre do Palácio das Memórias. Caminhe entre estantes antigas, siga as luzes e descubra o livro que aguarda no salão.</p>
+    </div>
+    <div id="status">Modo computador</div>
+    <div id="help">
+      <strong>Como explorar</strong>
+      <div class="row"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Andar pelos corredores</span></div>
+      <div class="row"><kbd>Mouse</kbd><span>Olhar ao redor · clique na cena para capturar o mouse</span></div>
+      <div class="row"><kbd>Shift</kbd><span>Andar um pouco mais rápido</span></div>
+      <div class="row"><kbd>E</kbd><span>Ler o livro dourado quando estiver perto</span></div>
+      <div class="row"><kbd>Esc</kbd><span>Liberar o mouse</span></div>
+    </div>
+    <div id="reticle"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="footer">WebXR · protótipo explorável<br>Os corredores são reciclados para criar a ilusão de infinito</div>
+  </div>
+  <div id="vr-root"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
